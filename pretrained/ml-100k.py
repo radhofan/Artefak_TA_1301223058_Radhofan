@@ -24,7 +24,7 @@ parser.add_argument('--gan', type=str, default='ctgan')
 parser.add_argument('--dataset', type=str, default='ml-100k')
 args = parser.parse_args()
 
-AUGMENTED_CSV = f'generated/{args.gan}/{args.dataset}.csv'  
+AUGMENTED_CSV = f'generated/{args.gan}/{args.dataset}-augmented.csv'  
 LEARNING_RATE = 0.001
 
 # Model architectures

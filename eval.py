@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Embedding, Input, Dense, Flatten, Concatenate
-from tensorflow.keras.regularizers import l2
+from tensorflow.keras.models import Model # type: ignore
+from tensorflow.keras.layers import Embedding, Input, Dense, Flatten, Concatenate # type: ignore
+from tensorflow.keras.regularizers import l2 # type: ignore
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -59,24 +59,47 @@ def calculate_absolute_unfairness(y_true, y_pred, groups):
         return 0
     return np.mean([abs(e1 - e2) for i, e1 in enumerate(errors) for e2 in errors[i+1:]])
 
-def calculate_hit_ratio(y_true, y_pred, k=10, threshold=0.5):
-    if len(y_pred) < k:
-        k = len(y_pred)
-    top_k_indices = np.argsort(y_pred)[-k:]
-    hits = np.sum(y_true[top_k_indices] >= threshold)
-    return 1 if hits > 0 else 0
+def calculate_hit_ratio_per_user(user_input, item_input, labels, predictions, k=10, threshold=0.5):
+    unique_users = np.unique(user_input)
+    hit_rates = []
+    
+    for user in unique_users:
+        user_mask = user_input == user
+        user_labels = labels[user_mask]
+        user_preds = predictions[user_mask]
+        
+        if len(user_preds) == 0:
+            continue
+            
+        top_k = min(k, len(user_preds))
+        top_k_indices = np.argsort(user_preds)[-top_k:]
+        hits = np.sum(user_labels[top_k_indices] >= threshold)
+        hit_rates.append(1 if hits > 0 else 0)
+    
+    return np.mean(hit_rates) if hit_rates else 0
 
-def calculate_ndcg(y_true, y_pred, k=10):
-    if len(y_pred) < k:
-        k = len(y_pred)
+def calculate_ndcg_per_user(user_input, item_input, labels, predictions, k=10):
+    unique_users = np.unique(user_input)
+    ndcg_scores = []
     
-    top_k_indices = np.argsort(y_pred)[-k:][::-1]
-    dcg = np.sum([(2**y_true[i] - 1) / np.log2(idx + 2) for idx, i in enumerate(top_k_indices)])
+    for user in unique_users:
+        user_mask = user_input == user
+        user_labels = labels[user_mask]
+        user_preds = predictions[user_mask]
+        
+        if len(user_preds) == 0:
+            continue
+            
+        top_k = min(k, len(user_preds))
+        top_k_indices = np.argsort(user_preds)[-top_k:][::-1]
+        dcg = np.sum([(2**user_labels[i] - 1) / np.log2(idx + 2) for idx, i in enumerate(top_k_indices)])
+        
+        ideal_indices = np.argsort(user_labels)[-top_k:][::-1]
+        idcg = np.sum([(2**user_labels[i] - 1) / np.log2(idx + 2) for idx, i in enumerate(ideal_indices)])
+        
+        ndcg_scores.append(dcg / idcg if idcg > 0 else 0)
     
-    ideal_indices = np.argsort(y_true)[-k:][::-1]
-    idcg = np.sum([(2**y_true[i] - 1) / np.log2(idx + 2) for idx, i in enumerate(ideal_indices)])
-    
-    return dcg / idcg if idcg > 0 else 0
+    return np.mean(ndcg_scores) if ndcg_scores else 0
 
 #################### MODEL BUILDER ####################
 
@@ -129,12 +152,20 @@ if __name__ == '__main__':
     
     from utils import split_train_test
     
-    original_data = load_movie_input(csv_path=f'data/{args.dataset}/{args.dataset}.csv', binary_labels=True, threshold=4)
-    _, test_data = split_train_test(original_data, test_ratio=0.2, random_state=42)
-    
-    gan_data = load_movie_input(csv_path=f'generated/{args.gan}/{args.dataset}.csv', binary_labels=True, threshold=4)
-    num_users = gan_data['num_users']
-    num_items = gan_data['num_items']
+    if args.gan == 'baseline':
+        original_data = load_movie_input(csv_path=f'data/{args.dataset}/{args.dataset}.csv', binary_labels=True, threshold=4)
+        _, test_data = split_train_test(original_data, test_ratio=0.2, random_state=42)
+        num_users = original_data['num_users']
+        num_items = original_data['num_items']
+        model_files = glob.glob(f'models/baseline/{args.dataset}/*.weights.h5')
+    else:
+        original_data = load_movie_input(csv_path=f'data/{args.dataset}/{args.dataset}.csv', binary_labels=True, threshold=4)
+        _, test_data = split_train_test(original_data, test_ratio=0.2, random_state=42)
+        
+        gan_data = load_movie_input(csv_path=f'generated/{args.gan}/{args.dataset}-augmented.csv', binary_labels=True, threshold=4)
+        num_users = gan_data['num_users']
+        num_items = gan_data['num_items']
+        model_files = glob.glob(f'models/repaired/{args.gan}/{args.dataset}/*.weights.h5')
     
     user_input = test_data['user_input']
     item_input = test_data['item_input']
@@ -147,7 +178,6 @@ if __name__ == '__main__':
     labels = labels[valid_mask]
     groups = groups[valid_mask]
     
-    model_files = glob.glob(f'models/repaired/{args.gan}/{args.dataset}/*.weights.h5')
     results = []
     
     for model_file in sorted(model_files):
@@ -164,10 +194,10 @@ if __name__ == '__main__':
         ti = calculate_theil_index(predictions)
         maed = calculate_maed(predictions, groups)
         u_abs = calculate_absolute_unfairness(labels, predictions, groups)
-        hr_scores = [calculate_hit_ratio(labels, predictions) for _ in range(min(100, len(labels)))]
-        ndcg_scores = [calculate_ndcg(labels, predictions) for _ in range(min(100, len(labels)))]
-        hr = np.mean(hr_scores)
-        ndcg = np.mean(ndcg_scores)
+        hr = calculate_hit_ratio_per_user(user_input, item_input, labels, predictions, k=10)
+        ndcg = calculate_ndcg_per_user(user_input, item_input, labels, predictions, k=10)
+        hr = np.mean(hr)
+        ndcg = np.mean(ndcg)
         mae = mean_absolute_error(labels, predictions)
         pred_binary = (predictions >= 0.5).astype(int)
         macro_f1 = f1_score(labels, pred_binary, average='macro', zero_division=0)
@@ -190,3 +220,10 @@ if __name__ == '__main__':
     os.makedirs(f'results/{args.gan}/{args.dataset}', exist_ok=True)
     results_df = pd.DataFrame(results)
     results_df.to_csv(f'results/{args.gan}/{args.dataset}/results.csv', index=False)
+    
+    print("\n" + "="*80)
+    print(f"EVALUATION RESULTS: {args.gan.upper()} on {args.dataset}")
+    print("="*80)
+    print(results_df.to_string(index=False))
+    print("="*80)
+    print(f"\nResults saved to: results/{args.gan}/{args.dataset}/results.csv\n")

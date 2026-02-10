@@ -1,6 +1,14 @@
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+
+# SET SEED
+SEED = 42
+np.random.seed(SEED)
+tf.random.set_seed(SEED)
+import random
+random.seed(SEED)
+
 from tensorflow.keras.models import Model # type: ignore
 from tensorflow.keras.layers import Embedding, Input, Dense, Flatten, Concatenate # type: ignore
 from tensorflow.keras.regularizers import l2 # type: ignore

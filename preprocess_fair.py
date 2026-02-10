@@ -4,7 +4,12 @@ import argparse
 import os
 from aif360.datasets import StandardDataset
 from aif360.algorithms.preprocessing import DisparateImpactRemover
+import shutil
+import random
 
+SEED = 42
+np.random.seed(SEED)
+random.seed(SEED)
 
 def aif360_fairness_preprocessing(input_csv, output_csv, protected_attribute='gender_binary', 
                                    label_name='rating', threshold=4, repair_level=1.0):
@@ -111,6 +116,29 @@ def aif360_fairness_preprocessing(input_csv, output_csv, protected_attribute='ge
     
     return df_transf
 
+def no_fairness_preprocessing(input_csv, output_csv):
+    """
+    NO fairness preprocessing - just copy the file.
+    For ablation study to see impact of fairness preprocessing.
+    """
+    
+    print("=" * 80)
+    print("NO FAIRNESS PREPROCESSING (Ablation Study)")
+    print("=" * 80)
+    
+    # Just copy the file
+    shutil.copy(input_csv, output_csv)
+    
+    df = pd.read_csv(output_csv)
+    print(f"Copied data from: {input_csv}")
+    print(f"Saved to: {output_csv}")
+    print(f"Total samples: {len(df)}")
+    print(f"Columns: {list(df.columns)}")
+    print("\nNO fairness corrections applied (control group for ablation)")
+    print("=" * 80)
+    
+    return df
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Apply AIF360 Disparate Impact Remover')
@@ -127,25 +155,41 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    # Construct file paths
-    input_csv = f'data/{args.dataset}/{args.dataset}.csv'
-    output_csv = f'data/{args.dataset}/{args.dataset}-fair.csv'  # Same file (overwrite)
+    NO_FAIRNESS = False  # Change this to True to disable fairness preprocessing
     
-    print(f"\n### AIF360 Fairness Preprocessing for {args.dataset} ###\n")
+    input_csv = f'data/{args.dataset}/{args.dataset}.csv'
+    output_csv = f'data/{args.dataset}/{args.dataset}-fair.csv'
     
     if not os.path.exists(input_csv):
         print(f"Error: Input file not found: {input_csv}")
         print("Please run the data loading script first.")
         exit(1)
     
-    # Apply fairness preprocessing
-    fair_data = aif360_fairness_preprocessing(
-        input_csv=input_csv,
-        output_csv=output_csv,
-        protected_attribute=args.protected_attr,
-        label_name=args.label,
-        threshold=args.threshold,
-        repair_level=args.repair_level
-    )
+    if NO_FAIRNESS:
+        # Ablation: Just copy without fairness preprocessing
+        print(f"\n### NO Fairness Preprocessing (Ablation Study) for {args.dataset} ###\n")
+        print("=" * 80)
+        print("NO FAIRNESS PREPROCESSING - ABLATION STUDY")
+        print("=" * 80)
+        df = pd.read_csv(input_csv)
+        df_sample = df.sample(n=10000, random_state=42)
+        df_sample.to_csv(output_csv, index=False)
+        print(f"Loaded data from: {input_csv}")
+        print(f"Sampled 10000 rows (same as fairness preprocessing)")
+        print(f"Saved to: {output_csv}")
+        print(f"Total samples: {len(df_sample)}")
+        print("NO fairness corrections applied")
+        print("=" * 80)
+    else:
+        # Normal: Apply fairness preprocessing
+        print(f"\n### AIF360 Fairness Preprocessing for {args.dataset} ###\n")
+        fair_data = aif360_fairness_preprocessing(
+            input_csv=input_csv,
+            output_csv=output_csv,
+            protected_attribute=args.protected_attr,
+            label_name=args.label,
+            threshold=args.threshold,
+            repair_level=args.repair_level
+        )
     
     print("\n### Preprocessing Complete ###\n")

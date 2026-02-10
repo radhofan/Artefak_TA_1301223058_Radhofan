@@ -1,7 +1,21 @@
-from ctgan import CTGAN
-import pandas as pd
 import os
 import argparse
+import numpy as np
+import random
+import torch
+import pandas as pd
+
+SEED = 42
+np.random.seed(SEED)
+random.seed(SEED)
+torch.manual_seed(SEED)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed(SEED)
+    torch.cuda.manual_seed_all(SEED)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+from ctgan import CTGAN
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='ml-100k')

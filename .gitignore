@@ -3,3 +3,7 @@
 __pycache__/
 */__pycache__/
 *.pyc
+/taegan/taegan_cache
+/checkpoints
+*/checkpoints
+notes.txt

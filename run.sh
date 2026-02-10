@@ -20,6 +20,7 @@ if [ "$GAN_TYPE" == "baseline" ]; then
     echo "### Baseline mode: Skipping preprocessing, GAN, and model training ###"
     echo ""
 else
+    # ctgan, great, taegan, tabfairgan, cfgan, decaf  
     echo ""
     echo "### STEP 2: Fairness Preprocessing ###"
     echo ""

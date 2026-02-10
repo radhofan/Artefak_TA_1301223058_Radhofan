@@ -2,6 +2,11 @@ import pandas as pd
 import numpy as np
 import os
 import argparse
+import random
+
+SEED = 42
+np.random.seed(SEED)
+random.seed(SEED)
 
 def load_movie_aug(data_path='data/ml-100k', output_csv='movielens_100k_for_gan.csv'):
     ratings = pd.read_csv(
@@ -131,8 +136,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='ml-100k')
     args = parser.parse_args()
-    
-    print(f"\n### STEP 1: Creating {args.dataset} CSV for GAN Training ###\n")
     
     if args.dataset == 'ml-100k':
         gan_data = load_movie_aug(

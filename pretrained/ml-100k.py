@@ -17,6 +17,12 @@ from tensorflow.keras.layers import Embedding, Input, Dense, Flatten, Concatenat
 from tensorflow.keras.optimizers import Adam
 from time import time
 import argparse
+import random
+
+SEED = 42
+np.random.seed(SEED)
+tf.random.set_seed(SEED)
+random.seed(SEED)
 
 #################### EDITABLE PARAMETERS ####################
 parser = argparse.ArgumentParser()
@@ -97,7 +103,7 @@ if __name__ == '__main__':
     print("Loaded data: #user=%d, #item=%d" % (num_users, num_items))
     
     # Create models directory
-    os.makedirs(f'models/{args.gan}/{args.dataset}', exist_ok=True)
+    os.makedirs(f'models/repaired/{args.gan}/{args.dataset}', exist_ok=True)
     
     # Create models
     print("\nCreating models...")

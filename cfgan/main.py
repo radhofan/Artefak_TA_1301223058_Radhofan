@@ -30,7 +30,7 @@ parser.add_argument('--use_interventional', action='store_true', help='Use inter
 args = parser.parse_args()
 
 # Load data
-data = pd.read_csv(f'data/{args.dataset}/{args.dataset}-fair.csv')
+data = pd.read_csv(f'data/{args.dataset}/{args.dataset}.csv')
 data_sample = data.sample(n=args.datasize, random_state=42)
 
 print("Starting CFGAN training...")

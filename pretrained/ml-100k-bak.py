@@ -1,11 +1,14 @@
 '''
-Simple MLP Model Builder - Loads existing models and retrains with APPENDED augmented data
-Appends GAN-augmented data to the original dataset
+Simple MLP Model Builder - Just creates and saves models
+Expects GAN-augmented CSV to already exist
 '''
+
 import sys
 import os
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from utils import load_movie_input
+
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.regularizers import l2
@@ -25,8 +28,6 @@ random.seed(SEED)
 parser = argparse.ArgumentParser()
 parser.add_argument('--gan', type=str, default='ctgan')
 parser.add_argument('--dataset', type=str, default='ml-100k')
-parser.add_argument('--epochs', type=int, default=20)
-parser.add_argument('--batch_size', type=int, default=256)
 args = parser.parse_args()
 
 AUGMENTED_CSV = f'generated/{args.gan}/{args.dataset}-augmented.csv'  
@@ -92,88 +93,24 @@ def get_model(num_users, num_items, layers, reg_layers):
 
 #################### MAIN ####################
 if __name__ == '__main__':
-    # Load ORIGINAL data
-    print("Loading original data...")
-    original_data = load_movie_input(
-        csv_path=f'data/{args.dataset}/{args.dataset}.csv', 
-        binary_labels=True, 
-        threshold=4
-    )
-    num_users = original_data['num_users']
-    num_items = original_data['num_items']
-    
     # Load GAN-augmented data
     print("Loading GAN-augmented data from: %s" % AUGMENTED_CSV)
-    augmented_data = load_movie_input(csv_path=AUGMENTED_CSV, binary_labels=True, threshold=4)
+    ncf_data = load_movie_input(csv_path=AUGMENTED_CSV, binary_labels=True, threshold=4)
     
-    # APPEND: Combine original + augmented data
-    print("\nCombining original and augmented data...")
-    train_users = np.concatenate([
-        np.array(original_data['user_input']),
-        np.array(augmented_data['user_input'])
-    ])
-    train_items = np.concatenate([
-        np.array(original_data['item_input']),
-        np.array(augmented_data['item_input'])
-    ])
-    train_labels = np.concatenate([
-        np.array(original_data['labels']),
-        np.array(augmented_data['labels'])
-    ])
+    num_users = ncf_data['num_users']
+    num_items = ncf_data['num_items']
     
-    # Filter out invalid IDs from augmented portion
-    valid_mask = (train_users < num_users) & (train_items < num_items)
-    train_users = train_users[valid_mask]
-    train_items = train_items[valid_mask]
-    train_labels = train_labels[valid_mask]
-    
-    print("Model dimensions: #user=%d, #item=%d" % (num_users, num_items))
-    print("Original samples: %d" % len(original_data['user_input']))
-    print("Augmented samples: %d" % len(augmented_data['user_input']))
-    print("Total training samples: %d" % len(train_users))
+    print("Loaded data: #user=%d, #item=%d" % (num_users, num_items))
     
     # Create models directory
     os.makedirs(f'models/repaired/{args.gan}/{args.dataset}', exist_ok=True)
     
-    # Load, retrain and save models
-    print("\nLoading and retraining models...")
+    # Create models
+    print("\nCreating models...")
     for arch in ARCHITECTURES:
-        print("\n" + "="*50)
-        print("Processing: %s" % arch['name'])
-        print("="*50)
-        
-        original_path = f'models/baseline/{args.dataset}/{arch["name"]}.weights.h5'
-        new_path = f'models/repaired/{args.gan}/{args.dataset}/{arch["name"]}.weights.h5'
-        
-        # Create model
         model = get_model(num_users, num_items, arch['layers'], arch['reg_layers'])
-        
-        # Load original weights if they exist
-        if os.path.exists(original_path):
-            model.load_weights(original_path)
-            print("Loaded weights from: %s" % original_path)
-        else:
-            print("WARNING: Original model not found at %s - training from scratch" % original_path)
-        
-        # Retrain on COMBINED original + augmented data
-        print("Retraining on combined data (original + augmented)...")
-        t1 = time()
-        history = model.fit(
-            [train_users, train_items],
-            train_labels,
-            batch_size=args.batch_size,
-            epochs=args.epochs,
-            verbose=1,
-            shuffle=True
-        )
-        t2 = time()
-        
-        # Save retrained model
-        model.save_weights(new_path)
-        print("Saved retrained model: %s" % new_path)
-        print("Training time: %.1f seconds" % (t2 - t1))
-        print("Final loss: %.4f" % history.history['loss'][-1])
-    
-    print("\n" + "="*50)
-    print("Done. Retrained %d models." % len(ARCHITECTURES))
-    print("="*50)
+        filename = f'models/repaired/{args.gan}/{args.dataset}/%s.weights.h5' % (arch['name'])  
+        model.save_weights(filename)  
+        print("Saved: %s (layers: %s)" % (filename, arch['layers']))
+
+    print("\nDone. Created %d models." % len(ARCHITECTURES))

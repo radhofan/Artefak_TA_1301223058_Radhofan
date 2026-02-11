@@ -28,7 +28,7 @@ parser.add_argument('--batch_size', type=int, default=500)
 parser.add_argument('--datasize', type=int, default=1000)
 args = parser.parse_args()
 
-data = pd.read_csv(f'data/{args.dataset}/{args.dataset}-fair.csv')
+data = pd.read_csv(f'data/{args.dataset}/{args.dataset}.csv')
 data_sample = data.sample(n=args.datasize, random_state=42)
 
 # Create data loader with sensitive column marked

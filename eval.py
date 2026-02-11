@@ -71,6 +71,9 @@ def calculate_hit_ratio_per_user(user_input, item_input, labels, predictions, k=
     unique_users = np.unique(user_input)
     hit_rates = []
     
+    print(f"  [DEBUG HR@10] Total unique users: {len(unique_users)}")
+    print(f"  [DEBUG HR@10] Threshold for hit: {threshold}")
+    
     for user in unique_users:
         user_mask = user_input == user
         user_labels = labels[user_mask]
@@ -84,7 +87,10 @@ def calculate_hit_ratio_per_user(user_input, item_input, labels, predictions, k=
         hits = np.sum(user_labels[top_k_indices] >= threshold)
         hit_rates.append(1 if hits > 0 else 0)
     
-    return np.mean(hit_rates) if hit_rates else 0
+    hit_ratio = np.mean(hit_rates) if hit_rates else 0
+    print(f"  [DEBUG HR@10] Users with hits: {sum(hit_rates)}/{len(hit_rates)}")
+    print(f"  [DEBUG HR@10] Final HR@10: {hit_ratio:.6f}")
+    return hit_ratio
 
 def calculate_ndcg_per_user(user_input, item_input, labels, predictions, k=10):
     unique_users = np.unique(user_input)
@@ -167,12 +173,19 @@ if __name__ == '__main__':
         num_items = original_data['num_items']
         model_files = glob.glob(f'models/baseline/{args.dataset}/*.weights.h5')
     else:
+        # original_data = load_movie_input(csv_path=f'data/{args.dataset}/{args.dataset}.csv', binary_labels=True, threshold=4)
+        # _, test_data = split_train_test(original_data, test_ratio=0.2, random_state=42)
+        
+        # gan_data = load_movie_input(csv_path=f'generated/{args.gan}/{args.dataset}-augmented.csv', binary_labels=True, threshold=4)
+        # num_users = gan_data['num_users']
+        # num_items = gan_data['num_items']
+        # model_files = glob.glob(f'models/repaired/{args.gan}/{args.dataset}/*.weights.h5')
+        
         original_data = load_movie_input(csv_path=f'data/{args.dataset}/{args.dataset}.csv', binary_labels=True, threshold=4)
         _, test_data = split_train_test(original_data, test_ratio=0.2, random_state=42)
         
-        gan_data = load_movie_input(csv_path=f'generated/{args.gan}/{args.dataset}-augmented.csv', binary_labels=True, threshold=4)
-        num_users = gan_data['num_users']
-        num_items = gan_data['num_items']
+        num_users = original_data['num_users']
+        num_items = original_data['num_items']
         model_files = glob.glob(f'models/repaired/{args.gan}/{args.dataset}/*.weights.h5')
     
     user_input = test_data['user_input']
@@ -186,6 +199,19 @@ if __name__ == '__main__':
     labels = labels[valid_mask]
     groups = groups[valid_mask]
     
+    # DEBUG: Print test set stats
+    print("\n" + "="*80)
+    print("TEST SET STATISTICS")
+    print("="*80)
+    print(f"Test set size: {len(labels)}")
+    print(f"Positive samples (label=1): {np.sum(labels == 1)} ({np.sum(labels == 1)/len(labels)*100:.2f}%)")
+    print(f"Negative samples (label=0): {np.sum(labels == 0)} ({np.sum(labels == 0)/len(labels)*100:.2f}%)")
+    print(f"Unique users: {len(np.unique(user_input))}")
+    print(f"Unique items: {len(np.unique(item_input))}")
+    print(f"Male samples: {np.sum(groups == 1)} ({np.sum(groups == 1)/len(groups)*100:.2f}%)")
+    print(f"Female samples: {np.sum(groups == 0)} ({np.sum(groups == 0)/len(groups)*100:.2f}%)")
+    print("="*80 + "\n")
+    
     results = []
     
     for model_file in sorted(model_files):
@@ -194,9 +220,18 @@ if __name__ == '__main__':
         if not arch:
             continue
         
+        print(f"\nEvaluating model: {model_name}")
+        print("-" * 40)
+        
         model = get_model(num_users, num_items, arch['layers'], arch['reg_layers'])
         model.load_weights(model_file)
         predictions = model.predict([user_input, item_input], verbose=0).flatten()
+        
+        # DEBUG: Print prediction stats
+        print(f"  [DEBUG] Prediction range: {predictions.min():.4f} to {predictions.max():.4f}")
+        print(f"  [DEBUG] Prediction mean: {predictions.mean():.4f}")
+        print(f"  [DEBUG] Prediction std: {predictions.std():.4f}")
+        print(f"  [DEBUG] Predictions >= 0.5: {np.sum(predictions >= 0.5)} ({np.sum(predictions >= 0.5)/len(predictions)*100:.2f}%)")
         
         cnt = calculate_consistency(labels, predictions)
         ti = calculate_theil_index(predictions)

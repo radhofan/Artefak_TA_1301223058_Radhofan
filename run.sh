@@ -1,5 +1,4 @@
 #!/bin/bash
-
 GAN_TYPE=$1
 DATASET=$2
 
@@ -20,11 +19,18 @@ if [ "$GAN_TYPE" == "baseline" ]; then
     echo "### Baseline mode: Skipping preprocessing, GAN, and model training ###"
     echo ""
 else
-    # ctgan, great, taegan, tabfairgan, cfgan, decaf  
-    echo ""
-    echo "### STEP 2: Fairness Preprocessing ###"
-    echo ""
-    python3 "preprocess_fair.py" --dataset "$DATASET"
+    # Check if GAN needs fairness preprocessing
+    if [ "$GAN_TYPE" == "tabfairgan" ] || [ "$GAN_TYPE" == "decaf" ] || [ "$GAN_TYPE" == "cfgan" ]; then
+        echo ""
+        echo "### STEP 2: Skipping Fairness Preprocessing (DECAF/CFGAN handle fairness internally) ###"
+        echo ""
+    else
+        # ctgan, great, taegan need external preprocessing
+        echo ""
+        echo "### STEP 2: Fairness Preprocessing ###"
+        echo ""
+        python3 "preprocess_fair.py" --dataset "$DATASET"
+    fi
     
     echo ""
     echo "### STEP 3: GAN Training ###"

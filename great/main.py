@@ -19,12 +19,12 @@ from be_great import GReaT
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='ml-100k')
-parser.add_argument('--epochs', type=int, default=50)
+parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument('--batch_size', type=int, default=32)  
 args = parser.parse_args()
 
 data = pd.read_csv(f'data/{args.dataset}/{args.dataset}-fair.csv')
-data_sample = data.sample(n=10000, random_state=42)
+data_sample = data.sample(n=20000, random_state=42)
 
 print("Starting GReaT training...")
 great = GReaT(
@@ -36,7 +36,7 @@ great = GReaT(
 great.fit(data_sample)
 print("Training complete!")
 
-synthetic_data = great.sample(n_samples=10000)
+synthetic_data = great.sample(n_samples=20000)
 
 os.makedirs('generated/great', exist_ok=True)
 synthetic_data.to_csv(f'generated/great/{args.dataset}-augmented.csv', index=False)

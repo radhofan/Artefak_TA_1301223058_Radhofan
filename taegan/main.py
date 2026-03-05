@@ -28,7 +28,7 @@ args = parser.parse_args()
 
 # Load data
 data = pd.read_csv(f'data/{args.dataset}/{args.dataset}-fair.csv')
-data_sample = data.sample(n=10000, random_state=42)
+data_sample = data.sample(n=20000, random_state=42)
 
 # Prepare cache directory
 cache_dir = f'taegan/taegan_cache/{args.dataset}'

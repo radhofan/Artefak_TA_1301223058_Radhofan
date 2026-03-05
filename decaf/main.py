@@ -23,9 +23,9 @@ from synthcity.plugins.core.dataloader import GenericDataLoader
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='ml-100k')
-parser.add_argument('--epochs', type=int, default=10)
+parser.add_argument('--epochs', type=int, default=50)
 parser.add_argument('--batch_size', type=int, default=500)
-parser.add_argument('--datasize', type=int, default=1000)
+parser.add_argument('--datasize', type=int, default=5000)
 args = parser.parse_args()
 
 data = pd.read_csv(f'data/{args.dataset}/{args.dataset}.csv')

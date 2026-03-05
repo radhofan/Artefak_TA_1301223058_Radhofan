@@ -9,4 +9,5 @@ __pycache__/
 notes.txt
 /trainer_great
 *_bak.py
-**/*_bak.py
+*_bak_*.py
+**/*_bak_*.py

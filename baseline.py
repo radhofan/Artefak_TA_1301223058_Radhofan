@@ -1,13 +1,14 @@
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils import load_movie_input, split_train_test
+from utils import load_movie_input, split_train_val_test
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Embedding, Input, Dense, Flatten, Concatenate
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping
 from time import time
 import argparse
 import random
@@ -77,10 +78,9 @@ def get_model(num_users, num_items, layers, reg_layers):
     model.compile(optimizer=Adam(learning_rate=0.001), loss='binary_crossentropy')
     return model
 
-# Load and split data
 print("Loading data...")
 ncf_data = load_movie_input(csv_path=f'data/{args.dataset}/{args.dataset}.csv', binary_labels=True, threshold=4)
-train_data, _ = split_train_test(ncf_data, test_ratio=0.2, random_state=42)
+train_data, val_data, _ = split_train_val_test(ncf_data, test_ratio=0.2, val_ratio=0.1, random_state=42)
 
 num_users = ncf_data['num_users']
 num_items = ncf_data['num_items']
@@ -89,14 +89,23 @@ train_users = np.array(train_data['user_input'])
 train_items = np.array(train_data['item_input'])
 train_labels = np.array(train_data['labels'])
 
-# Filter out invalid IDs (ensure 0-indexing)
 valid_mask = (train_users < num_users) & (train_items < num_items)
 train_users = train_users[valid_mask]
 train_items = train_items[valid_mask]
 train_labels = train_labels[valid_mask]
 
+val_users = np.array(val_data['user_input'])
+val_items = np.array(val_data['item_input'])
+val_labels = np.array(val_data['labels'])
+
+valid_mask_val = (val_users < num_users) & (val_items < num_items)
+val_users = val_users[valid_mask_val]
+val_items = val_items[valid_mask_val]
+val_labels = val_labels[valid_mask_val]
+
 print(f"Model dimensions: #user={num_users}, #item={num_items}")
 print(f"Training samples: {len(train_users)}")
+print(f"Validation samples: {len(val_users)}")
 print(f"User ID range: {train_users.min()} to {train_users.max()} (expected: 0 to {num_users-1})")
 print(f"Item ID range: {train_items.min()} to {train_items.max()} (expected: 0 to {num_items-1})")
 
@@ -110,7 +119,8 @@ for arch in ARCHITECTURES:
     
     model = get_model(num_users, num_items, arch['layers'], arch['reg_layers'])
     
-    # ACTUALLY TRAIN THE MODEL!
+    early_stop = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+    
     t1 = time()
     history = model.fit(
         [train_users, train_items],
@@ -118,7 +128,9 @@ for arch in ARCHITECTURES:
         batch_size=args.batch_size,
         epochs=args.epochs,
         verbose=1,
-        shuffle=True
+        shuffle=True,
+        validation_data=([val_users, val_items], val_labels),
+        callbacks=[early_stop]
     )
     t2 = time()
     

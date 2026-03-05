@@ -164,26 +164,17 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default='ml-100k')
     args = parser.parse_args()
     
-    from utils import split_train_test
+    from utils import split_train_val_test
     
     if args.gan == 'baseline':
         original_data = load_movie_input(csv_path=f'data/{args.dataset}/{args.dataset}.csv', binary_labels=True, threshold=4)
-        _, test_data = split_train_test(original_data, test_ratio=0.2, random_state=42)
+        _, _, test_data = split_train_val_test(original_data, test_ratio=0.2, val_ratio=0.1, random_state=42)
         num_users = original_data['num_users']
         num_items = original_data['num_items']
         model_files = glob.glob(f'models/baseline/{args.dataset}/*.weights.h5')
     else:
-        # original_data = load_movie_input(csv_path=f'data/{args.dataset}/{args.dataset}.csv', binary_labels=True, threshold=4)
-        # _, test_data = split_train_test(original_data, test_ratio=0.2, random_state=42)
-        
-        # gan_data = load_movie_input(csv_path=f'generated/{args.gan}/{args.dataset}-augmented.csv', binary_labels=True, threshold=4)
-        # num_users = gan_data['num_users']
-        # num_items = gan_data['num_items']
-        # model_files = glob.glob(f'models/repaired/{args.gan}/{args.dataset}/*.weights.h5')
-        
         original_data = load_movie_input(csv_path=f'data/{args.dataset}/{args.dataset}.csv', binary_labels=True, threshold=4)
-        _, test_data = split_train_test(original_data, test_ratio=0.2, random_state=42)
-        
+        _, _, test_data = split_train_val_test(original_data, test_ratio=0.2, val_ratio=0.1, random_state=42)
         num_users = original_data['num_users']
         num_items = original_data['num_items']
         model_files = glob.glob(f'models/repaired/{args.gan}/{args.dataset}/*.weights.h5')
@@ -199,7 +190,6 @@ if __name__ == '__main__':
     labels = labels[valid_mask]
     groups = groups[valid_mask]
     
-    # DEBUG: Print test set stats
     print("\n" + "="*80)
     print("TEST SET STATISTICS")
     print("="*80)
@@ -227,7 +217,6 @@ if __name__ == '__main__':
         model.load_weights(model_file)
         predictions = model.predict([user_input, item_input], verbose=0).flatten()
         
-        # DEBUG: Print prediction stats
         print(f"  [DEBUG] Prediction range: {predictions.min():.4f} to {predictions.max():.4f}")
         print(f"  [DEBUG] Prediction mean: {predictions.mean():.4f}")
         print(f"  [DEBUG] Prediction std: {predictions.std():.4f}")

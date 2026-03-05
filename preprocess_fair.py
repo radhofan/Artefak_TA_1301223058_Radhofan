@@ -143,15 +143,50 @@ if __name__ == '__main__':
         print("Please run the data loading script first.")
         exit(1)
     
+    # if NO_FAIRNESS:
+    #     print(f"\n### NO Fairness Preprocessing (Ablation Study) for {args.dataset} ###\n")
+    #     print("=" * 80)
+    #     print("NO FAIRNESS PREPROCESSING - ABLATION STUDY")
+    #     print("=" * 80)
+    #     df = pd.read_csv(input_csv)
+    #     df_sample = df.sample(n=10000, random_state=42)
+    #     df_sample.to_csv(output_csv, index=False)
+    #     print(f"Loaded data from: {input_csv}")
+    #     print(f"Sampled 10000 rows (same as fairness preprocessing)")
+    #     print(f"Saved to: {output_csv}")
+    #     print(f"Total samples: {len(df_sample)}")
+    #     print("NO fairness corrections applied")
+    #     print("=" * 80)
+    # else:
+    #     print(f"\n### AIF360 Fairness Preprocessing for {args.dataset} ###\n")
+    #     fair_data = aif360_fairness_preprocessing(
+    #         input_csv=input_csv,
+    #         output_csv=output_csv,
+    #         protected_attribute=args.protected_attr,
+    #         label_name=args.label,
+    #         threshold=args.threshold,
+    #         repair_level=args.repair_level
+    #     )
+    
+    df_full = pd.read_csv(input_csv)
+    np.random.seed(42)
+    indices = np.arange(len(df_full))
+    np.random.shuffle(indices)
+    test_size = int(len(df_full) * 0.2)
+    val_size = int(len(df_full) * 0.1)
+    train_indices = indices[test_size + val_size:]
+    df_train = df_full.iloc[train_indices]
+    train_csv = f'data/{args.dataset}/{args.dataset}-train.csv'
+    df_train.to_csv(train_csv, index=False)
+
     if NO_FAIRNESS:
         print(f"\n### NO Fairness Preprocessing (Ablation Study) for {args.dataset} ###\n")
         print("=" * 80)
         print("NO FAIRNESS PREPROCESSING - ABLATION STUDY")
         print("=" * 80)
-        df = pd.read_csv(input_csv)
-        df_sample = df.sample(n=10000, random_state=42)
+        df_sample = df_train.sample(n=10000, random_state=42)
         df_sample.to_csv(output_csv, index=False)
-        print(f"Loaded data from: {input_csv}")
+        print(f"Loaded data from: {train_csv}")
         print(f"Sampled 10000 rows (same as fairness preprocessing)")
         print(f"Saved to: {output_csv}")
         print(f"Total samples: {len(df_sample)}")
@@ -160,7 +195,7 @@ if __name__ == '__main__':
     else:
         print(f"\n### AIF360 Fairness Preprocessing for {args.dataset} ###\n")
         fair_data = aif360_fairness_preprocessing(
-            input_csv=input_csv,
+            input_csv=train_csv,
             output_csv=output_csv,
             protected_attribute=args.protected_attr,
             label_name=args.label,

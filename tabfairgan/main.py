@@ -27,7 +27,7 @@ parser.add_argument('--device', type=str, default='cuda:0')
 args = parser.parse_args()
 
 data = pd.read_csv(f'data/{args.dataset}/{args.dataset}-fair.csv')
-data_sample = data.sample(n=10000, random_state=42)
+data_sample = data.sample(n=50000, random_state=42)
 
 original_dtypes = data_sample.dtypes.to_dict()
 
@@ -58,7 +58,7 @@ tfg = TFG(
 tfg.train()
 print("Training complete!")
 
-synthetic_data = tfg.generate_fake_df(num_rows=10000)
+synthetic_data = tfg.generate_fake_df(num_rows=50000)
 
 for col, dtype in original_dtypes.items():
     if col in synthetic_data.columns:

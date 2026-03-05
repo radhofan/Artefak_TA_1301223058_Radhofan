@@ -132,6 +132,40 @@ def split_train_test(ncf_data, test_ratio=0.2, random_state=42):
     return train_data, test_data
 
 
+def split_train_val_test(ncf_data, test_ratio=0.2, val_ratio=0.1, random_state=42):
+    np.random.seed(random_state)
+
+    n_samples = len(ncf_data['user_input'])
+    indices = np.arange(n_samples)
+    np.random.shuffle(indices)
+
+    test_size = int(n_samples * test_ratio)
+    val_size = int(n_samples * val_ratio)
+
+    test_indices = indices[:test_size]
+    val_indices = indices[test_size:test_size + val_size]
+    train_indices = indices[test_size + val_size:]
+
+    def slice_data(idx):
+        return {
+            'user_input': ncf_data['user_input'][idx],
+            'item_input': ncf_data['item_input'][idx],
+            'labels': ncf_data['labels'][idx],
+            'gender': ncf_data['gender'][idx],
+            'gender_binary': ncf_data['gender_binary'][idx],
+            'num_users': ncf_data['num_users'],
+            'num_items': ncf_data['num_items']
+        }
+
+    train_data = slice_data(train_indices)
+    val_data = slice_data(val_indices)
+    test_data = slice_data(test_indices)
+
+    print(f"Split complete: {len(train_indices)} train, {len(val_indices)} val, {len(test_indices)} test")
+
+    return train_data, val_data, test_data
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='ml-100k')

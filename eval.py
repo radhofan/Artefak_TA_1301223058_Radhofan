@@ -18,22 +18,45 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from utils import load_movie_input
 from sklearn.metrics import f1_score, precision_score, mean_absolute_error
 from sklearn.neighbors import NearestNeighbors
+from sklearn.preprocessing import LabelEncoder
 import glob
 import argparse
+from aif360.datasets import BinaryLabelDataset
+from aif360.metrics import BinaryLabelDatasetMetric
+import pandas as pd
 
 #################### METRICS ####################
 
-def calculate_consistency(y_true, y_pred, k=5):
-    nbrs = NearestNeighbors(n_neighbors=min(k+1, len(y_pred)), algorithm='auto').fit(y_pred.reshape(-1, 1))
-    distances, indices = nbrs.kneighbors(y_pred.reshape(-1, 1))
+# def calculate_consistency(y_true, y_pred, k=5):
+#     nbrs = NearestNeighbors(n_neighbors=min(k+1, len(y_pred)), algorithm='auto').fit(y_pred.reshape(-1, 1))
+#     distances, indices = nbrs.kneighbors(y_pred.reshape(-1, 1))
     
-    consistency_scores = []
-    for i in range(len(y_pred)):
-        if len(indices[i]) > 1:
-            nn_idx = indices[i][1]
-            consistency_scores.append(abs(y_pred[i] - y_pred[nn_idx]) / 2)
+#     consistency_scores = []
+#     for i in range(len(y_pred)):
+#         if len(indices[i]) > 1:
+#             nn_idx = indices[i][1]
+#             consistency_scores.append(abs(y_pred[i] - y_pred[nn_idx]) / 2)
     
-    return 1 - np.mean(consistency_scores) if consistency_scores else 0
+#     return 1 - np.mean(consistency_scores) if consistency_scores else 0
+
+def calculate_consistency(age, gender_binary, occupation_encoded, y_pred, k=5):
+    df = pd.DataFrame({
+        'age': age,
+        'gender': gender_binary,
+        'occupation': occupation_encoded,
+        'label': (y_pred >= 0.5).astype(int)
+    })
+
+    dataset = BinaryLabelDataset(
+        favorable_label=1,
+        unfavorable_label=0,
+        df=df,
+        label_names=['label'],
+        protected_attribute_names=['gender']
+    )
+
+    metric = BinaryLabelDatasetMetric(dataset)
+    return float(metric.consistency(n_neighbors=k)[0])
 
 def calculate_theil_index(values):
     values = values[values > 0]
@@ -184,11 +207,21 @@ if __name__ == '__main__':
     labels = test_data['labels']
     groups = (test_data['gender'] == 'M').astype(int)
     
+    print(test_data.keys())
+    
     valid_mask = (user_input < num_users) & (item_input < num_items)
     user_input = user_input[valid_mask]
     item_input = item_input[valid_mask]
     labels = labels[valid_mask]
     groups = groups[valid_mask]
+
+    user_meta = pd.read_csv(f'data/{args.dataset}/{args.dataset}.csv')[['user_id', 'age', 'occupation']].drop_duplicates('user_id')
+    user_id_to_age = dict(zip(user_meta['user_id'], user_meta['age']))
+    user_id_to_occ = dict(zip(user_meta['user_id'], user_meta['occupation']))
+    age_arr = np.array([user_id_to_age[uid] for uid in user_input])
+    occ_arr = np.array([user_id_to_occ[uid] for uid in user_input])
+    occ_enc = LabelEncoder()
+    occ_encoded = occ_enc.fit_transform(occ_arr)
     
     print("\n" + "="*80)
     print("TEST SET STATISTICS")
@@ -222,7 +255,14 @@ if __name__ == '__main__':
         print(f"  [DEBUG] Prediction std: {predictions.std():.4f}")
         print(f"  [DEBUG] Predictions >= 0.5: {np.sum(predictions >= 0.5)} ({np.sum(predictions >= 0.5)/len(predictions)*100:.2f}%)")
         
-        cnt = calculate_consistency(labels, predictions)
+        # cnt = calculate_consistency(labels, predictions)
+        cnt = calculate_consistency(
+            age_arr,
+            test_data['gender_binary'][valid_mask],
+            occ_encoded,
+            predictions,
+            k=5
+        )
         ti = calculate_theil_index(predictions)
         maed = calculate_maed(predictions, groups)
         u_abs = calculate_absolute_unfairness(labels, predictions, groups)

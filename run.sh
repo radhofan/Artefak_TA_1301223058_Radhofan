@@ -19,13 +19,11 @@ if [ "$GAN_TYPE" == "baseline" ]; then
     echo "### Baseline mode: Skipping preprocessing, GAN, and model training ###"
     echo ""
 else
-    # Check if GAN needs fairness preprocessing
     if [ "$GAN_TYPE" == "tabfairgan" ] || [ "$GAN_TYPE" == "decaf" ] || [ "$GAN_TYPE" == "cfgan" ]; then
         echo ""
         echo "### STEP 2: Skipping Fairness Preprocessing (DECAF/CFGAN handle fairness internally) ###"
         echo ""
     else
-        # ctgan, great, taegan need external preprocessing
         echo ""
         echo "### STEP 2: Fairness Preprocessing ###"
         echo ""
